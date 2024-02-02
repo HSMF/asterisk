@@ -1,5 +1,8 @@
 (executable
- (name main))
+ (name main)
+)
+
+(include_subdirs qualified)
 
 (env
  (dev

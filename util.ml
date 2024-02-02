@@ -1,0 +1,41 @@
+open Printf
+include Fun
+
+let sp = sprintf
+let sl map sep lst = lst |> List.map map |> String.concat sep
+let ( >>= ) = Option.bind
+let ( $> ) op f = Option.map f op
+let ( >>> ) f g x = x |> f |> g
+
+module Set = struct
+  type 'a t = 'a list
+
+  let rec union xs = function
+    | [] -> xs
+    | hd :: tl ->
+      if List.find_opt (fun x -> x = hd) xs |> Option.is_some
+      then union xs tl
+      else union (hd :: xs) tl
+
+
+  let from_list lst =
+    let rec helper acc = function
+      | [] -> acc
+      | hd :: tl -> helper (union acc [ hd ]) tl
+    in
+    helper [] lst
+end
+
+module List = struct
+  include List
+
+  let group (n : int) (lst : 'a list) =
+    let rec aux acc m lst =
+      match lst, acc with
+      | [], [] -> []
+      | [], x -> [ rev x ]
+      | hd :: tl, x ->
+        if m = 0 then rev x :: aux [] n (hd :: tl) else aux (hd :: x) (m - 1) tl
+    in
+    aux [] n lst
+end

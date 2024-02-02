@@ -1,5 +1,5 @@
 open Generator
-open Printf
+open! Printf
 open Datastructures
 open Util
 

@@ -1,0 +1,12 @@
+*.swp
+
+# artifacts
+_build
+
+# generated files
+*.png
+*.svg
+*.js
+*.java
+*.dot
+*.html

@@ -1,0 +1,8 @@
+(executable
+ (name main))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A -no-strict-formats))))
+

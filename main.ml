@@ -18,6 +18,7 @@ let grammar =
   ; "C", [ Term "v"; Term "="; Term "v" ], "new Eq((String)buf[0], (String)buf[2])"
   ]
 
+
 let s0 = "S0"
 
 let write_file filename s =
@@ -26,8 +27,18 @@ let write_file filename s =
   close_out f
 
 
-let make_artifact_dir name =
-  if Sys.file_exists name && Sys.is_directory name then () else Sys.mkdir name 0o755
+let make_artifact_dir =
+  let did = ref false in
+  fun name ->
+    if not !did
+    then begin
+      if Sys.file_exists name && Sys.is_directory name
+      then ()
+      else begin
+        Sys.mkdir name 0o755;
+        did := true
+      end
+    end
 
 
 let () =
@@ -56,8 +67,10 @@ let () =
     ]
   in
   Arg.parse speclist (fun x -> grammar_file := Some x) "asterisk [OPTIONS]\n";
-  make_artifact_dir !artifact_dir;
-  let outfile = sp "%s/%s" !artifact_dir in
+  let outfile name =
+    make_artifact_dir !artifact_dir;
+    sp "%s/%s" !artifact_dir name
+  in
   let graph = make_graph grammar (initial grammar s0) in
   let conflicts = conflicts graph in
   printf

@@ -4,6 +4,7 @@
 _build
 
 # generated files
+output/*
 *.png
 *.svg
 *.js

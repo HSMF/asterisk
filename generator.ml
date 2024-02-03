@@ -6,6 +6,8 @@ type token =
   | Term of string
   | NonTerm of string
 
+type 'a grammar = (string * token list * 'a) list
+
 module Token = struct
   type t = token
 
@@ -29,6 +31,12 @@ module Token = struct
   let term = function
     | Term x -> Some x
     | _ -> None
+
+
+  let fold ~non_term ~term (tok : t) =
+    match tok with
+    | Term x -> term x
+    | NonTerm x -> non_term x
 end
 
 module TokenS = MakeSet (Token)
@@ -131,7 +139,8 @@ let closure_pass grammar (states : state Set.t) =
     | hd :: tl ->
       let x =
         List.nth_opt hd.after 0
-        >>= fun follows -> Token.non_term follows $> fun follows -> initial grammar follows
+        >>= fun follows ->
+        Token.non_term follows $> fun follows -> initial grammar follows
       in
       let added = Option.fold ~none:[] ~some:Fun.id x in
       closure_pass (Set.union acc added) tl
@@ -193,7 +202,7 @@ let advance (edge : token) (states : state list) =
   List.filter_map filt states
 
 
-let make_graph grammar (states : state list) =
+let make_graph (grammar : 'a grammar) (states : state list) =
   let uid =
     let i = ref 0 in
     fun () ->
@@ -274,7 +283,11 @@ let table_of_graph (g : graph) : table =
     let reductions =
       states
       |> List.filter is_reduction
-      |> List.map (fun x -> TokenS.to_list x.lookahead, Reduce (x.rule, x.before))
+      |> List.map (fun x ->
+        ( (match TokenS.to_list x.lookahead with
+           | [] -> [ Term "$" ]
+           | x -> x)
+        , Reduce (x.rule, x.before) ))
       |> List.map (fun (lookahead, reduce) ->
         lookahead |> List.filter_map Token.term |> List.map (fun x -> x, reduce))
       |> List.concat

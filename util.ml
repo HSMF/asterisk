@@ -39,3 +39,6 @@ module List = struct
     in
     aux [] n lst
 end
+
+let sl_grouped n map sep sep_line lst =
+  lst |> List.group n |> List.map (sl map sep) |> sl id sep_line

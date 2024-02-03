@@ -19,6 +19,17 @@ let grammar =
   ]
 
 
+let grammar =
+  [ "S0", [ NonTerm "A"; Term "$" ], "v0"
+  ; "A", [ NonTerm "A"; Term "and"; NonTerm "B" ], "Ast.And(v0, v2)"
+  ; "A", [ NonTerm "B" ], "v0"
+  ; "B", [ NonTerm "B"; Term "or"; NonTerm "C" ], "Ast.Or(v0, v2)"
+  ; "B", [ NonTerm "C" ], "v0"
+  ; "C", [ Term "("; NonTerm "A"; Term ")" ], "v1"
+  ; "C", [ Term "v"; Term "="; Term "v" ], "Ast.Eq(v0, v2)"
+  ]
+
+
 let s0 = "S0"
 
 let write_file filename s =
@@ -47,6 +58,7 @@ let () =
   let emit_dot = ref false in
   let emit_js = ref false in
   let emit_java = ref false in
+  let emit_ocaml = ref false in
   let print_table = ref false in
   let grammar_file = ref None in
   let speclist =
@@ -59,6 +71,9 @@ let () =
     ; ( "-emit-java"
       , Arg.Set emit_java
       , "emit java code, put into <artifact_dir>/Parser.java" )
+    ; ( "-emit-ocaml"
+      , Arg.Set emit_ocaml
+      , "emit ocaml code, put into <artifact_dir>/parser.ml" )
     ; ( "-emit-html"
       , Arg.Set emit_html
       , "emit java code, put into <artifact_dir>/table.html" )
@@ -105,6 +120,19 @@ let () =
   then begin
     write_file (outfile "parser.js") @@ Frontends.Javascript.js_of_table grammar table
   end;
+  let token_id x =
+    List.assoc
+      x
+      [ "(", "OpenParen"
+      ; ")", "CloseParen"
+      ; "and", "And"
+      ; "or", "Or"
+      ; "=", "Equals"
+      ; "col", "Col"
+      ; "v", "Val"
+      ; "$", "Eof"
+      ]
+  in
   if !emit_java
   then begin
     write_file (outfile "Parser.java")
@@ -121,18 +149,28 @@ let () =
     import com.hyde.app.tokens.TokenId;
     |}
          ~return_type:"Operand"
-         ~token_id:(fun x ->
+         ~token_id
+         grammar
+         table
+  end;
+  if !emit_ocaml
+  then begin
+    write_file (outfile ".parser.ml")
+    @@ Frontends.Ocaml.ocaml_of_table
+         ~prelude:"open Lex"
+         ~token_id
+         ~non_term_types:(fun x ->
            List.assoc
              x
-             [ "(", "OpenParen"
-             ; ")", "CloseParen"
-             ; "and", "And"
-             ; "or", "Or"
-             ; "=", "Equals"
-             ; "col", "Col"
-             ; "v", "Val"
-             ; "$", "Eof"
+             [ "S0", "Ast.elt"
+             ; "S1", "Ast.elt"
+             ; "A", "Ast.elt"
+             ; "B", "Ast.elt"
+             ; "C", "Ast.elt"
              ])
+         ~token_type:"token"
+         ~token_associated_type:(fun x -> List.assoc_opt x [ "v", "string" ])
+         ~toplevel_rule:"S0"
          grammar
          table
   end;

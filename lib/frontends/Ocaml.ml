@@ -184,7 +184,7 @@ let ocaml_of_table
   | %s
   type stack_value =
   | %s
-  | %s
+    %s
   | StackValue_None
 
   type nonterm = %s
@@ -218,7 +218,7 @@ let ocaml_of_table
        all_non_terminals)
     (all_terminals
      |> List.filter_map (fun x -> token_associated_type x $> fun y -> x, y)
-     |> sl (fun (token, value) -> sp "%s of %s" (stack_value_term token) value) "\n  | ")
+     |> sl (fun (token, value) -> sp "| %s of %s" (stack_value_term token) value) "\n  ")
     (sl token_nonterm " | " all_non_terminals)
     token_type
     gotos

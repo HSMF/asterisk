@@ -1,11 +1,13 @@
 open Printf
-open Datastructures
+open Lib.Datastructures
+open! Lib
 open! Fun
-open! Util
-open Generator
+open! Lib.Util
+open Lib.Generator
 
-let grammar =
-  [ "S0", [ NonTerm "A"; Term "$" ], "buf[0]"
+(*
+   let grammar =
+   [ "S0", [ NonTerm "A"; Term "$" ], "buf[0]"
   ; ( "A"
     , [ NonTerm "A"; Term "and"; NonTerm "B" ]
     , "new And((Operand)buf[0], (Operand) buf[2])" )
@@ -16,11 +18,11 @@ let grammar =
   ; "B", [ NonTerm "C" ], "buf[0]"
   ; "C", [ Term "("; NonTerm "A"; Term ")" ], "buf[1]"
   ; "C", [ Term "v"; Term "="; Term "v" ], "new Eq((String)buf[0], (String)buf[2])"
-  ]
+  ] *)
 
-
-let grammar =
-  [ "S0", [ NonTerm "A"; Term "$" ], "v0"
+(*
+   let grammar =
+   [ "S0", [ NonTerm "A"; Term "$" ], "v0"
   ; "A", [ NonTerm "A"; Term "and"; NonTerm "B" ], "Ast.And(v0, v2)"
   ; "A", [ NonTerm "B" ], "v0"
   ; "B", [ NonTerm "B"; Term "or"; NonTerm "C" ], "Ast.Or(v0, v2)"
@@ -28,6 +30,10 @@ let grammar =
   ; "C", [ Term "("; NonTerm "A"; Term ")" ], "v1"
   ; "C", [ Term "v"; Term "="; Term "v" ], "Ast.Eq(v0, v2)"
   ]
+*)
+
+let grammar =
+  mk_grammar ("A", [ "A", [ Term "v"; NonTerm "A" ], "(v0 + 1)"; "A", [], "(0)" ])
 
 
 let s0 = "S0"
@@ -50,6 +56,32 @@ let make_artifact_dir =
         did := true
       end
     end
+
+
+let gen_from_file outfile filename : unit =
+  let f = open_in filename in
+  let contents = In_channel.input_all f in
+  close_in f;
+  let lang, _prelude, non_term_types, grammar = Spec_parser.parse_spec contents in
+  let graph = make_graph grammar (initial grammar s0) in
+  let table = table_of_graph graph in
+  (match lang with
+   | "js" | "javascript" -> failwith "todo"
+   | "java" -> failwith "todo"
+   | "ocaml" -> begin
+     write_file (outfile "parser.ml")
+     @@ Frontends.Ocaml.ocaml_of_table
+          ~prelude:"open Lex"
+          ~token_id:id
+          ~non_term_types
+          ~token_type:"token"
+          ~token_associated_type:(fun x -> List.assoc_opt x [ "v", "string" ])
+          ~toplevel_rule:"S0"
+          grammar
+          table
+   end
+   | x -> failwith ("unsupported language " ^ x));
+  ()
 
 
 let () =
@@ -86,6 +118,13 @@ let () =
     make_artifact_dir !artifact_dir;
     sp "%s/%s" !artifact_dir name
   in
+  begin
+    match !grammar_file with
+    | Some f ->
+      gen_from_file outfile f;
+      exit 0
+    | None -> ()
+  end;
   let graph = make_graph grammar (initial grammar s0) in
   let conflicts = conflicts graph in
   printf
@@ -159,15 +198,7 @@ let () =
     @@ Frontends.Ocaml.ocaml_of_table
          ~prelude:"open Lex"
          ~token_id
-         ~non_term_types:(fun x ->
-           List.assoc
-             x
-             [ "S0", "Ast.elt"
-             ; "S1", "Ast.elt"
-             ; "A", "Ast.elt"
-             ; "B", "Ast.elt"
-             ; "C", "Ast.elt"
-             ])
+         ~non_term_types:(const "int")
          ~token_type:"token"
          ~token_associated_type:(fun x -> List.assoc_opt x [ "v", "string" ])
          ~toplevel_rule:"S0"

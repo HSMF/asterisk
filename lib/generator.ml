@@ -1,6 +1,7 @@
 open Util
 open Datastructures
 open! Fun
+open! Printf
 
 type token =
   | Term of string
@@ -56,9 +57,12 @@ type graph = (state list * token UidM.t) Datastructures.UidM.t
 
 let string_of_token = Token.to_string
 
-let rec fix f init =
+let rec fix ?(eq = ( = )) ?(print = const "") f init =
   let fixed = f init in
-  if fixed = init then init else fix f fixed
+  if eq fixed init
+  then init
+  else (* printf "%s <> %s\n" (print fixed) (print init); *)
+    fix ~print ~eq f fixed
 
 
 let string_of_state { rule; before; after; lookahead } =
@@ -107,6 +111,16 @@ let graph_to_string (g : graph) : string =
     |} (String.concat "\n" texts)
 
 
+let mk_grammar (entry, grammar) : 'a grammar =
+  List.iter
+    (fun (rule, _, _) ->
+      if rule = "S0"
+      then
+        failwith "grammar may not contain nonterminal 'S', because it is used internally")
+    grammar;
+  ("S0", [ NonTerm entry; Term "$" ], "v0") :: grammar
+
+
 let productions grammar rule_name =
   List.filter_map (fun (k, v, _) -> if k = rule_name then Some v else None) grammar
 
@@ -116,10 +130,19 @@ let first_set grammar (rule : token) : TokenS.t =
     firsts
     |> TokenS.to_list
     |> List.filter_map Token.non_term
-    |> List.map (fun x -> productions grammar x |> List.map List.hd |> TokenS.of_list)
+    |> List.map (fun x ->
+      productions grammar x
+      |> List.map (function
+        | [] -> Term "<empty>"
+        | x :: _ -> x)
+      |> TokenS.of_list)
     |> List.fold_left (fun ac x -> TokenS.union x ac) firsts
   in
-  fix pass (TokenS.of_list [ rule ])
+  fix
+    ~eq:(fun a b -> TokenS.compare a b = 0)
+    ~print:TokenS.to_string
+    pass
+    (TokenS.of_list [ rule ])
   |> TokenS.to_list
   |> List.filter (fun x -> Option.is_some @@ Token.term x)
   |> TokenS.of_list
@@ -162,7 +185,7 @@ let closure grammar (states : state list) =
               begin
                 match hd.after with
                 | [] -> None
-                | [ c ] -> Some (c, TokenS.of_list [ Term "" ])
+                | [ c ] -> Some (c, TokenS.of_list [ Term "<empty>" ])
                 | c :: delta :: _ -> Some (c, first_set grammar delta)
               end
             in
@@ -172,8 +195,8 @@ let closure grammar (states : state list) =
             Token.non_term c
             $> fun c ->
             let lookahead =
-              if TokenS.mem (Term "") lookahead
-              then TokenS.union (TokenS.remove (Term "") lookahead) hd.lookahead
+              if TokenS.mem (Term "<empty>") lookahead
+              then TokenS.union (TokenS.remove (Term "<empty>") lookahead) hd.lookahead
               else lookahead
             in
             List.map (fun state -> { state with lookahead }) (initial grammar c)
@@ -185,7 +208,7 @@ let closure grammar (states : state list) =
     let o = pass states states in
     o
   in
-  fix pass states
+  fix ~print:string_of_states pass states
 
 
 let out_edges (states : state list) =

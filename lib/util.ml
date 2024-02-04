@@ -38,6 +38,9 @@ module List = struct
         if m = 0 then rev x :: aux [] n (hd :: tl) else aux (hd :: x) (m - 1) tl
     in
     aux [] n lst
+
+
+  let inspect f lst = List.iter f lst; lst
 end
 
 let sl_grouped n map sep sep_line lst =

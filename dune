@@ -1,8 +1,7 @@
 (executable
  (name main)
+ (libraries Lib)
 )
-
-(include_subdirs qualified)
 
 (env
  (dev

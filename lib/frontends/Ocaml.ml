@@ -71,10 +71,11 @@ let ocaml_of_table
           x
       in
       sp
-        {|let (_, typ, tmp), stack = pop_stack stack in
+        {|let (_, typ, tmp), _stack = pop_stack _stack in
                 let v%d = (match typ, tmp with
                 | %s%s, %s -> %s
-                | _ -> raise (Parse_error "expected token %s")) in|}
+                | _ -> raise (Parse_error "expected token %s")) in
+                ignore v%d;|}
         i
         (Token.fold
            ~non_term:(fun nt -> "NonTerm " ^ token_nonterm nt)
@@ -86,7 +87,8 @@ let ocaml_of_table
            x)
         (Option.fold ~none:"StackValue_None" ~some:(fun typ -> typ ^ " v") typ)
         (Option.fold ~none:"()" ~some:(const "v") typ)
-        (string_of_token x))
+        (string_of_token x)
+        i)
     |> sl id ("\n" ^ indent 8)
   in
   let case (token : string) (action : action) =
@@ -96,45 +98,45 @@ let ocaml_of_table
         let _, _, code = List.find (fun (r, e, _) -> rule = r && expansion = e) grammar in
         let goto =
           if rule = toplevel_rule
-          then "value"
+          then "_value"
           else
             sp
               {|
-                let (before, _, _) = List.hd stack in
+                let (before, _, _) = List.hd _stack in
                 let goto, goto_id = goto_%s before in
-                let stack = (goto_id, NonTerm %s, %s value) :: stack in
-                goto stack input|}
+                let _stack = (goto_id, NonTerm %s, %s _value) :: _stack in
+                goto _stack input|}
               rule
               (token_nonterm rule)
               (stack_value_nonterm rule)
         in
         sp
           {|%s
-                let value = (%s) in
+                let _value = (%s) in
                 %s|}
           (reduce expansion)
           code
           goto
       | Shift goto ->
-        let shifted_token = if is_eof token then "TermEof" else "Term head" in
+        let shifted_token = if is_eof token then "TermEof" else "Term _head" in
         sp
-          {|let stack = (%s, %s, %s) :: stack in
-               %s stack input'|}
+          {|let _stack = (%s, %s, %s) :: _stack in
+               %s _stack _input'|}
           (state_id goto)
           shifted_token
           (match token_associated_type token with
            | None -> "StackValue_None"
-           | Some _ -> sp "%s (value)" (stack_value_term token))
+           | Some _ -> sp "%s (_value)" (stack_value_term token))
           goto
     in
     let match_case =
       if is_eof token
-      then "[ (* EOF *) ] as input'"
+      then "[ (* EOF *) ] as _input'"
       else
         sp
-          "(%s%s as head) :: input'"
+          "(%s%s as _head) :: _input'"
           (token_id token)
-          (token |> token_associated_type |> Option.fold ~none:"" ~some:(const " value"))
+          (token |> token_associated_type |> Option.fold ~none:"" ~some:(const " _value"))
     in
     sp {|| %s -> begin
                 %s
@@ -158,13 +160,13 @@ let ocaml_of_table
       |> sl (fun (token, action) -> case token action) "\n             "
     in
     sp
-      {|and %s (stack: stack) (input: token list) =%s
+      {|and %s (_stack: stack) (input: token list) =%s
       |}
       state
       (if state = ""
        then
          failwith
-           {|match stack with _::x::_ -> x | _ -> raise (Parse_error "empty stack")|}
+           {|match _stack with _::x::_ -> x | _ -> raise (Parse_error "empty stack")|}
        else
          sp (* could probably be List.hd, since EOF symbol does this checking *)
            {|
@@ -196,7 +198,6 @@ let ocaml_of_table
       | [] -> raise (Parse_error msg)
       | hd::tl -> hd, tl in
     let pop_stack a = pop "stack" a in
-    let pop_input a = pop "input" a in
 
     let rec _hello = ()
 
@@ -218,7 +219,8 @@ let ocaml_of_table
        all_non_terminals)
     (all_terminals
      |> List.filter_map (fun x -> token_associated_type x $> fun y -> x, y)
-     |> sl (fun (token, value) -> sp "| %s of (%s)" (stack_value_term token) value) "\n  ")
+     |> sl (fun (token, value) -> sp "| %s of (%s)" (stack_value_term token) value) "\n  "
+    )
     (sl token_nonterm " | " all_non_terminals)
     token_type
     gotos

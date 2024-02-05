@@ -110,7 +110,7 @@ let ocaml_of_table
         in
         sp
           {|%s
-                let value = %s in
+                let value = (%s) in
                 %s|}
           (reduce expansion)
           code
@@ -213,12 +213,12 @@ let ocaml_of_table
     (sl_grouped 5 state_id " | " "\n  | " all_states)
     (sl
        (fun nonterm ->
-         sp "%s of %s" (stack_value_nonterm nonterm) (non_term_types nonterm))
+         sp "%s of (%s)" (stack_value_nonterm nonterm) (non_term_types nonterm))
        "\n  | "
        all_non_terminals)
     (all_terminals
      |> List.filter_map (fun x -> token_associated_type x $> fun y -> x, y)
-     |> sl (fun (token, value) -> sp "| %s of %s" (stack_value_term token) value) "\n  ")
+     |> sl (fun (token, value) -> sp "| %s of (%s)" (stack_value_term token) value) "\n  ")
     (sl token_nonterm " | " all_non_terminals)
     token_type
     gotos

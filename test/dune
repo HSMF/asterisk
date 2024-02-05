@@ -1,3 +1,4 @@
 (test
  (name test)
+ (deps (file grammar-lex.ast))
  (libraries Lib ounit2))

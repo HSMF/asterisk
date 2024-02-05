@@ -1,0 +1,38 @@
+TARGET = ocaml
+PRELUDE = {
+    open Spec.Lex
+}
+
+Grammar: { string * string * (string * string * (string list * string) list) list  }
+  | TargetSpec PreludeSpec Rules { (v0, v1, v2) }
+
+TargetSpec: { string }
+  | Target Equals Ident { v2 }
+
+PreludeSpec : { string }
+  | Prelude Equals Literal { v2 }
+
+Configs: { (string * string) list }
+  | Config Configs { v0 :: v1 }
+  | { [] }
+
+Config: { string * string }
+  | Ident Equals Ident { v0, v2 }
+
+Rules: { (string * string * (string list * string) list) list }
+  | Rule Rules { v1 :: v0 }
+  | { [] }
+
+Rule: { string * string * (string list * string) list }
+  | Ident Colon Literal CaseList { (v0, v2, v3) }
+
+CaseList: { (string list * string) list }
+  | Case CaseList { v0 :: v1 }
+  | { [] }
+
+Case: { string list * string }
+  | Pipe Idents Literal { v1, v2 }
+
+Idents: { string list }
+  | Ident Idents { v0 :: v1 }
+  | { [] }

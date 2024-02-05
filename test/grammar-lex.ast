@@ -1,0 +1,9 @@
+TARGET = ocaml
+
+PRELUDE = {
+    open Lex
+}
+
+A: { Ast.elt }
+  | A And B { Ast.And(v0, v2) }
+  | B { v0 }

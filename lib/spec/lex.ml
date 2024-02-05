@@ -59,7 +59,7 @@ let literal (s : stream) =
 
 let special_tokens = [ "TARGET", Target; "PRELUDE", Prelude ]
 
-let next_token (s : stream) =
+let rec next_token (s : stream) =
   let s = skip_whitespace s in
   match s () with
   | Nil -> None
@@ -67,6 +67,9 @@ let next_token (s : stream) =
   | Cons (':', tl) -> Some (Colon, tl)
   | Cons ('|', tl) -> Some (Pipe, tl)
   | Cons ('{', tl) -> Some (literal tl)
+  | Cons ('#', tl) ->
+    let tl = Seq.drop_while (negate @@ one_of [ '\n'; '\r' ]) tl in
+    next_token tl
   | Cons (hd, tl) ->
     if is_ident_char hd
     then (

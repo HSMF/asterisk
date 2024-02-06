@@ -60,6 +60,7 @@ let make_artifact_dir =
 
 let emit_html = ref false
 let emit_dot = ref false
+let output_file = ref None
 
 let gen_from_file outfile filename : unit =
   let f = open_in filename in
@@ -68,12 +69,12 @@ let gen_from_file outfile filename : unit =
   let lang, prelude, non_term_types, token_associated_type, grammar =
     Spec.Spec_parser.parse_spec contents
   in
-  print_endline
-  @@ "parsed grammar as\n"
-  ^ sl
-      (fun (rule, exp, code) -> sp "%s -> %s {%s}" rule (sl string_of_token " " exp) code)
-      "\n"
-      grammar;
+  (* print_endline *)
+  (* @@ "parsed grammar as\n" *)
+  (* ^ sl *)
+  (*     (fun (rule, exp, code) -> sp "%s -> %s {%s}" rule (sl string_of_token " " exp) code) *)
+  (*     "\n" *)
+  (*     grammar; *)
   let graph = make_graph grammar (initial grammar s0) in
   if !emit_dot
   then begin
@@ -85,11 +86,16 @@ let gen_from_file outfile filename : unit =
     write_file (outfile "table.html")
     @@ Frontends.Javascript.html_of_table grammar [] table
   end;
+  let actual_output ext =
+    match !output_file with
+    | Some x -> x
+    | None -> outfile ("parser." ^ ext)
+  in
   (match lang with
    | "js" | "javascript" -> failwith "todo"
    | "java" -> failwith "todo"
    | "ocaml" -> begin
-     write_file (outfile "parser.ml")
+     write_file (actual_output "ml")
      @@ Frontends.Ocaml.ocaml_of_table
           ~prelude
           ~token_id:id
@@ -114,6 +120,9 @@ let () =
   let speclist =
     [ ( "-O"
       , Arg.Set_string artifact_dir
+      , "sets artifact directory (where the files are produced to)" )
+    ; ( "-o"
+      , Arg.String (fun x -> output_file := Some x)
       , "sets artifact directory (where the files are produced to)" )
     ; ( "-emit-js"
       , Arg.Set emit_js

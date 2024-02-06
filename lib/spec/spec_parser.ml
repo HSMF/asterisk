@@ -1,4 +1,4 @@
-open Printf
+open! Printf
 open Util
 (*
    Grammar: { string * string * (string * string * (string list * string) list) list  }
@@ -68,10 +68,9 @@ let parse_spec (s : string)
   =
   let open Ast in
   let spec : spec = s |> Lex.lex |> Parser.parse in
-  let open Datastructures in
-  printf "targetting %s\n" spec.spec_target;
-  printf "prelude: %s\n" spec.spec_prelude;
-  print_endline @@ sl (fun (a, b) -> a ^ " = " ^ b) "\n  -> " spec.spec_configs;
+  (* printf "targetting %s\n" spec.spec_target; *)
+  (* printf "prelude: %s\n" spec.spec_prelude; *)
+  (* print_endline @@ sl (fun (a, b) -> a ^ " = " ^ b) "\n  -> " spec.spec_configs; *)
   let token_types = List.filter_map token_type spec.spec_configs in
   let entry =
     List.assoc_opt "entry" spec.spec_configs |> Option.unwrap_or "Entry"

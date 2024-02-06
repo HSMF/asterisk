@@ -73,7 +73,9 @@ let parse_spec (s : string)
   printf "prelude: %s\n" spec.spec_prelude;
   print_endline @@ sl (fun (a, b) -> a ^ " = " ^ b) "\n  -> " spec.spec_configs;
   let token_types = List.filter_map token_type spec.spec_configs in
-  let entry = "Entry" in
+  let entry =
+    List.assoc_opt "entry" spec.spec_configs |> Option.unwrap_or "Entry"
+  in
   let non_terminals_types = List.map (fun (rule, typ, _) -> rule, typ) spec.spec_rules in
   let s0_type = List.assoc entry non_terminals_types in
   let non_terminals_types = ("S0", s0_type) :: non_terminals_types in

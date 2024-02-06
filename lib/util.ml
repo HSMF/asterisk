@@ -40,8 +40,17 @@ module List = struct
     aux [] n lst
 
 
-  let inspect f lst = List.iter f lst; lst
+  let inspect f lst =
+    List.iter f lst;
+    lst
 end
 
 let sl_grouped n map sep sep_line lst =
   lst |> List.group n |> List.map (sl map sep) |> sl id sep_line
+
+
+module Option = struct
+  include Option
+
+  let unwrap_or default = fold ~none:default ~some:id
+end

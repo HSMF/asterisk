@@ -33,7 +33,7 @@ open Lib.Generator
 *)
 
 let grammar =
-  mk_grammar ("A", [ "A", [ Term "v"; NonTerm "A" ], "(v0 + 1)"; "A", [], "(0)" ])
+  mk_grammar ("A", [ "A", [ Term "v"; NonTerm "A" ], "(v0 :: v1)"; "A", [], "[]" ])
 
 
 let s0 = "S0"
@@ -58,24 +58,44 @@ let make_artifact_dir =
     end
 
 
+let emit_html = ref false
+let emit_dot = ref false
+
 let gen_from_file outfile filename : unit =
   let f = open_in filename in
   let contents = In_channel.input_all f in
   close_in f;
-  let lang, _prelude, non_term_types, grammar = Spec_parser.parse_spec contents in
+  let lang, prelude, non_term_types, token_associated_type, grammar =
+    Spec.Spec_parser.parse_spec contents
+  in
+  print_endline
+  @@ "parsed grammar as\n"
+  ^ sl
+      (fun (rule, exp, code) -> sp "%s -> %s {%s}" rule (sl string_of_token " " exp) code)
+      "\n"
+      grammar;
   let graph = make_graph grammar (initial grammar s0) in
+  if !emit_dot
+  then begin
+    write_file (outfile "dfa.dot") @@ graph_to_string graph
+  end;
   let table = table_of_graph graph in
+  if !emit_html
+  then begin
+    write_file (outfile "table.html")
+    @@ Frontends.Javascript.html_of_table grammar [] table
+  end;
   (match lang with
    | "js" | "javascript" -> failwith "todo"
    | "java" -> failwith "todo"
    | "ocaml" -> begin
      write_file (outfile "parser.ml")
      @@ Frontends.Ocaml.ocaml_of_table
-          ~prelude:"open Lex"
+          ~prelude
           ~token_id:id
           ~non_term_types
           ~token_type:"token"
-          ~token_associated_type:(fun x -> List.assoc_opt x [ "v", "string" ])
+          ~token_associated_type
           ~toplevel_rule:"S0"
           grammar
           table
@@ -86,8 +106,6 @@ let gen_from_file outfile filename : unit =
 
 let () =
   let artifact_dir = ref "output" in
-  let emit_html = ref false in
-  let emit_dot = ref false in
   let emit_js = ref false in
   let emit_java = ref false in
   let emit_ocaml = ref false in
@@ -113,6 +131,7 @@ let () =
     ; "-emit-dot", Arg.Set emit_dot, "emit java code, put into <artifact_dir>/dfa.dot"
     ]
   in
+  let grammar = Spec.Spec_parser.own_grammar in
   Arg.parse speclist (fun x -> grammar_file := Some x) "asterisk [OPTIONS]\n";
   let outfile name =
     make_artifact_dir !artifact_dir;
@@ -194,13 +213,40 @@ let () =
   end;
   if !emit_ocaml
   then begin
+    print_endline
+    @@ "parsed grammar as\n"
+    ^ sl
+        (fun (rule, exp, code) ->
+          sp "%s -> %s {%s}" rule (sl string_of_token " " exp) code)
+        "\n"
+        grammar;
     write_file (outfile ".parser.ml")
     @@ Frontends.Ocaml.ocaml_of_table
          ~prelude:"open Lex"
-         ~token_id
-         ~non_term_types:(const "int")
+         ~token_id:id
+         ~non_term_types:(fun x ->
+           try
+             List.assoc
+               x
+               [ ( "Grammar"
+                 , " (string * string * (string * string * (string list * string) list) \
+                    list)  " )
+               ; ( "S0"
+                 , " (string * string * (string * string * (string list * string) list) \
+                    list)  " )
+               ; "TargetSpec", "string"
+               ; "PreludeSpec", "string"
+               ; "Rules", " (string * string * (string list * string) list) list "
+               ; "Rule", " (string * string * (string list * string) list) "
+               ; "CaseList", " (string list * string) list "
+               ; "Case", "(string list * string)"
+               ; "Idents", "(string list)"
+               ]
+           with
+           | Not_found -> failwith x)
          ~token_type:"token"
-         ~token_associated_type:(fun x -> List.assoc_opt x [ "v", "string" ])
+         ~token_associated_type:(fun x ->
+           List.assoc_opt x [ "Literal", "string"; "Ident", "string" ])
          ~toplevel_rule:"S0"
          grammar
          table

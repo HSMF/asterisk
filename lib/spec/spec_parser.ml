@@ -53,19 +53,32 @@ let own_grammar =
 let parse_spec (s : string)
   : string * string * (string -> string) * string Generator.grammar
   =
-  let (target, prelude, rules)
-    : string * string * (string * string * (string list * string) list) list
-    =
-    s |> Lex.lex |> Parser.parse
-  in
+  let open Ast in
+  let spec : spec = s |> Lex.lex |> Parser.parse in
+  (* let (target, prelude, rules) *)
+  (*   : string * string * (string * string * (string list * string) list) list *)
+  (*   = *)
+  (*   s |> Lex.lex |> Parser.parse *)
+  (* in *)
+  (* let spec = *)
+  (*   { spec_rules = rules *)
+  (*   ; spec_target = target *)
+  (*   ; spec_prelude = prelude *)
+  (*   ; spec_tokens = [] *)
+  (*   ; spec_configs = [] *)
+  (*   } *)
+  (* in *)
   let open Datastructures in
-  printf "%s\n" prelude;
-  printf "%s\n" target;
-  let non_terminals_types = List.map (fun (rule, typ, _) -> rule, typ) rules in
+  printf "targetting %s\n" spec.spec_target;
+  printf "prelude: %s\n" spec.spec_prelude;
+  let entry = "Entry" in
+  let non_terminals_types = List.map (fun (rule, typ, _) -> rule, typ) spec.spec_rules in
+  let s0_type = List.assoc entry non_terminals_types in
+  let non_terminals_types = ("S0", s0_type) :: non_terminals_types in
   let non_terminals = List.map fst non_terminals_types in
   let types x = List.assoc x non_terminals_types in
   let grammar =
-    rules
+    spec.spec_rules
     |> List.map (fun (rule, _, expansion) ->
       List.map
         (fun (expansion, code) ->
@@ -78,4 +91,5 @@ let parse_spec (s : string)
         expansion)
     |> List.concat
   in
-  target, prelude, types, grammar
+  let grammar = Generator.mk_grammar (entry, grammar) in
+  spec.spec_target, spec.spec_prelude, types, grammar

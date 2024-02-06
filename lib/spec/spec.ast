@@ -4,6 +4,10 @@ PRELUDE = {
     open Ast
 }
 
+# denotes that the token `Literal` carries data of type string
+token_Ident = string
+token_Literal = string
+
 Entry: { spec }
   | TargetSpec PreludeSpec Configs Rules {{
         spec_target = v0
@@ -32,6 +36,7 @@ Configs: { (string * string) list }
 
 Config: { string * string }
   | Ident Equals Ident { v0, v2 }
+  | Ident Equals Literal { v0, v2 }
 
 Rules: { rule list }
   | Rule Rules { v0 :: v1 }

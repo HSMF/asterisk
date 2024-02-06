@@ -290,7 +290,12 @@ let conflicts (g : graph) =
 
 let table_of_graph (g : graph) : table =
   let g = UidM.to_list g in
-  let map_state (states : state list) (neighbors : token UidM.t)
+  let arbitrarily_resolved = ref [] in
+  let add_arbitrarily_resolved state key opt1 opt2 =
+    arbitrarily_resolved := (state, key, opt1, opt2) :: !arbitrarily_resolved;
+    None
+  in
+  let map_state state_id (states : state list) (neighbors : token UidM.t)
     : action UidM.t * string UidM.t
     =
     let shifts =
@@ -320,22 +325,29 @@ let table_of_graph (g : graph) : table =
     (* if UidS.inter (keys shifts) (keys reductions) |> UidS.is_empty |> not *)
     (* then failwith "unresolved shift/reduce conflict"; *)
     ( UidM.union
-        (fun key l r ->
-          failwith
-            (sp
-               "shift/reduce conflict in %s: can %s but also %s"
-               key
-               (string_of_action r)
-               (string_of_action l)))
+        (fun key l r -> add_arbitrarily_resolved state_id key l r)
         shifts
         reductions
     , gotos )
   in
   let x =
     List.map
-      (fun (state_id, (states, neighbors)) -> state_id, map_state states neighbors)
+      (fun (state_id, (states, neighbors)) ->
+        state_id, map_state state_id states neighbors)
       g
   in
+  List.iter
+    (fun (state, input, opt1, opt2) ->
+      eprintf
+        "  Conflict in %s upon %s arbitrarily resolved: can %s but also %s\n"
+        state
+        input
+        (string_of_action opt1)
+        (string_of_action opt2))
+    !arbitrarily_resolved;
+  if not @@ List.is_empty !arbitrarily_resolved then
+    failwith "got shift/reduce conflicts"
+  ;
   UidM.of_list x
 
 

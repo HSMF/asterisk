@@ -1,0 +1,10 @@
+(executable
+ (name main)
+)
+
+(rule
+ (alias generate)
+ (deps grammar.ast)
+ (targets grammar.ml)
+ (action (run asterisk grammar.ast -o grammar.ml))
+)

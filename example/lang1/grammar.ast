@@ -1,0 +1,42 @@
+TARGET = ocaml
+PRELUDE = {
+    open Lex
+    open Ast
+}
+
+token_Ident = string
+
+
+Entry: { fdecl list }
+    | Fdecls { v0 }
+
+Fdecls: { fdecl list }
+    | Fdecl Fdecls { v0 :: v1 }
+    | { [] }
+
+Fdecl: { fdecl }
+    | Fn Ident OpenParen Args CloseParen Block { v1, v3, v5 }
+
+Args: { (string * typ) list }
+    | { [] }
+    | Ident Colon Type MoreArgs { (v0, v2) :: v3 }
+
+MoreArgs: { (string * typ) list }
+    | { [] }
+    | Comma Ident Colon Type MoreArgs { (v1, v3) :: v4 }
+
+Block: { stmt list }
+    | OpenBrace Stmts CloseBrace { v1 }
+
+Stmts: { stmt list }
+    | {[]}
+    | Stmt Stmts { v0 :: v1 }
+
+Stmt: { stmt }
+    | Ident Decl Expr Semicolon { Decl(v0, v2) }
+
+Expr: { exp }
+    | Ident { EVar(v0) }
+
+Type: { typ }
+    | Ident { TVar(v0) }

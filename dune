@@ -1,6 +1,9 @@
 (executable
  (name main)
+ (public_name asterisk)
  (libraries Lib)
+ (modes byte)
+ ; (package asterisk)
 )
 
 (env

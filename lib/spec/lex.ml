@@ -8,8 +8,6 @@ type token =
   | Equals
   | Colon
   | Pipe
-  | Target
-  | Prelude
   | Literal of string
   | Ident of string
 
@@ -57,7 +55,7 @@ let literal (s : stream) =
   Literal (Buffer.contents buf), rem
 
 
-let special_tokens = [ "TARGET", Target; "PRELUDE", Prelude ]
+let special_tokens = []
 
 let rec next_token (s : stream) =
   let s = skip_whitespace s in
@@ -93,7 +91,5 @@ let string_of_token = function
   | Equals -> "="
   | Colon -> ":"
   | Pipe -> "|"
-  | Target -> "TARGET"
-  | Prelude -> "PRELUDE"
   | Literal s -> sp "Literal (%s)" (String.escaped s)
   | Ident id -> sp "Ident (%s)" id

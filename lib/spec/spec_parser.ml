@@ -67,13 +67,28 @@ let parse_spec (s : string)
     * string Generator.grammar
   =
   let open Ast in
-  let spec : spec = s |> Lex.lex |> Parser.parse in
+  let assoc_case_insensitive key =
+    List.find_opt (fun (k, _) -> String.lowercase_ascii k = key) >>> Option.map snd
+  in
+  let spec : spec =
+    let open Parser in
+    try s |> Lex.lex |> parse with
+    | Parse_error (ErrMsg m) -> failwith m
+    | Parse_error (ErrUnexpectedToken (expected, state, input)) -> begin
+      flush stdout;
+      eprintf "expected one of %s in state %s.\n" (sl id ", " expected) state;
+      eprintf "remaining input is %s" (sl Lex.string_of_token ", " input);
+      exit ~-1
+    end
+  in
   (* printf "targetting %s\n" spec.spec_target; *)
   (* printf "prelude: %s\n" spec.spec_prelude; *)
   (* print_endline @@ sl (fun (a, b) -> a ^ " = " ^ b) "\n  -> " spec.spec_configs; *)
+  let target = assoc_case_insensitive "target" spec.spec_configs |> Option.unwrap in
+  let prelude = assoc_case_insensitive "prelude" spec.spec_configs |> Option.unwrap in
   let token_types = List.filter_map token_type spec.spec_configs in
   let entry =
-    List.assoc_opt "entry" spec.spec_configs |> Option.unwrap_or "Entry"
+    spec.spec_configs |> assoc_case_insensitive "entry" |> Option.unwrap_or "Entry"
   in
   let non_terminals_types = List.map (fun (rule, typ, _) -> rule, typ) spec.spec_rules in
   let s0_type = List.assoc entry non_terminals_types in
@@ -95,8 +110,4 @@ let parse_spec (s : string)
     |> List.concat
   in
   let grammar = Generator.mk_grammar (entry, grammar) in
-  ( spec.spec_target
-  , spec.spec_prelude
-  , types
-  , (fun x -> List.assoc_opt x token_types)
-  , grammar )
+  target, prelude, types, (fun x -> List.assoc_opt x token_types), grammar

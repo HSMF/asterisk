@@ -4,40 +4,40 @@
     open Lex
     open Ast
 
-  exception Parse_error of string
+  type error_data =
+    | ErrMsg of string
+    | ErrUnexpectedToken of string list * string * token list
+  exception Parse_error of error_data
 
   type states =
   | State_node1 | State_node10 | State_node11 | State_node12 | State_node13
   | State_node14 | State_node15 | State_node16 | State_node17 | State_node18
   | State_node19 | State_node2 | State_node20 | State_node21 | State_node22
   | State_node23 | State_node24 | State_node25 | State_node26 | State_node27
-  | State_node28 | State_node29 | State_node3 | State_node30 | State_node31
-  | State_node32 | State_node33 | State_node34 | State_node35 | State_node36
-  | State_node37 | State_node4 | State_node5 | State_node6 | State_node7
-  | State_node8 | State_node9
+  | State_node28 | State_node29 | State_node3 | State_node4 | State_node5
+  | State_node6 | State_node7 | State_node8 | State_node9
   type stack_value =
   | StackValue_Case of ( string list * string )
   | StackValue_CaseList of ( (string list * string) list )
   | StackValue_Config of ( string * string )
   | StackValue_Configs of ( (string * string) list )
-  | StackValue_Entry of ( spec )
+  | StackValue_Grammar of ( spec )
   | StackValue_Idents of ( string list )
-  | StackValue_PreludeSpec of ( string )
   | StackValue_Rule of ( rule )
   | StackValue_Rules of ( rule list )
   | StackValue_S0 of ( spec )
-  | StackValue_TargetSpec of ( string )
     | StackValue_Ident of (string)
   | StackValue_Literal of (string)
   | StackValue_None
 
-  type nonterm = Token_Case | Token_CaseList | Token_Config | Token_Configs | Token_Entry | Token_Idents | Token_PreludeSpec | Token_Rule | Token_Rules | Token_S0 | Token_TargetSpec
+  type nonterm = Token_Case | Token_CaseList | Token_Config | Token_Configs | Token_Grammar | Token_Idents | Token_Rule | Token_Rules | Token_S0
   type token_type = Term of token | NonTerm of nonterm | TermEof
   type stack = (states * token_type * stack_value) list
 
   let parse input =
+    let raise_msg m = raise (Parse_error (ErrMsg (m))) in
     let pop msg = function
-      | [] -> raise (Parse_error msg)
+      | [] -> raise_msg (msg)
       | hd::tl -> hd, tl in
     let pop_stack a = pop "stack" a in
 
@@ -45,79 +45,132 @@
 
     and goto_Case (state: states) =
               match state with
-                | State_node11 -> node13, State_node13
-                | State_node13 -> node13, State_node13
-                | _ -> raise (Parse_error "couldn't match in goto Case")
+                | State_node11 -> node11, State_node11
+                | State_node9 -> node11, State_node11
+                | _ -> raise_msg ("couldn't match in goto Case")
 
     and goto_CaseList (state: states) =
               match state with
                 | State_node11 -> node12, State_node12
-                | State_node13 -> node14, State_node14
-                | _ -> raise (Parse_error "couldn't match in goto CaseList")
+                | State_node9 -> node10, State_node10
+                | _ -> raise_msg ("couldn't match in goto CaseList")
 
     and goto_Config (state: states) =
               match state with
-                | State_node20 -> node22, State_node22
-                | State_node5 -> node27, State_node27
-                | _ -> raise (Parse_error "couldn't match in goto Config")
+                | State_node1 -> node25, State_node25
+                | State_node18 -> node20, State_node20
+                | _ -> raise_msg ("couldn't match in goto Config")
 
     and goto_Configs (state: states) =
               match state with
-                | State_node5 -> node20, State_node20
-                | _ -> raise (Parse_error "couldn't match in goto Configs")
+                | State_node1 -> node18, State_node18
+                | _ -> raise_msg ("couldn't match in goto Configs")
 
-    and goto_Entry (state: states) =
+    and goto_Grammar (state: states) =
               match state with
                 | State_node1 -> node2, State_node2
-                | _ -> raise (Parse_error "couldn't match in goto Entry")
+                | _ -> raise_msg ("couldn't match in goto Grammar")
 
     and goto_Idents (state: states) =
               match state with
-                | State_node15 -> node16, State_node16
-                | State_node18 -> node19, State_node19
-                | _ -> raise (Parse_error "couldn't match in goto Idents")
-
-    and goto_PreludeSpec (state: states) =
-              match state with
-                | State_node4 -> node5, State_node5
-                | _ -> raise (Parse_error "couldn't match in goto PreludeSpec")
+                | State_node13 -> node14, State_node14
+                | State_node16 -> node17, State_node17
+                | _ -> raise_msg ("couldn't match in goto Idents")
 
     and goto_Rule (state: states) =
               match state with
-                | State_node20 -> node7, State_node7
-                | State_node5 -> node7, State_node7
-                | State_node7 -> node7, State_node7
-                | _ -> raise (Parse_error "couldn't match in goto Rule")
+                | State_node1 -> node5, State_node5
+                | State_node18 -> node5, State_node5
+                | State_node5 -> node5, State_node5
+                | _ -> raise_msg ("couldn't match in goto Rule")
 
     and goto_Rules (state: states) =
               match state with
-                | State_node20 -> node21, State_node21
-                | State_node5 -> node6, State_node6
-                | State_node7 -> node8, State_node8
-                | _ -> raise (Parse_error "couldn't match in goto Rules")
-
-    and goto_TargetSpec (state: states) =
-              match state with
                 | State_node1 -> node4, State_node4
-                | _ -> raise (Parse_error "couldn't match in goto TargetSpec")
+                | State_node18 -> node19, State_node19
+                | State_node5 -> node6, State_node6
+                | _ -> raise_msg ("couldn't match in goto Rules")
 
     and node1 (_stack: stack) (input: token list) =
            match input with
-             | (Target as _head) :: _input' -> begin
-                let _stack = (State_node35, Term _head, StackValue_None) :: _stack in
-               node35 _stack _input'
+             | [ (* EOF *) ] as _input' -> begin
+                
+                let _value = ( [] ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Rules before in
+                let _stack = (goto_id, NonTerm Token_Rules, StackValue_Rules _value) :: _stack in
+                goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Target` (Target)} in state node1."))
+             | (Ident _value as _head) :: _input' -> begin
+                let _stack = (State_node26, Term _head, StackValue_Ident (_value)) :: _stack in
+               node26 _stack _input'
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node1", input)))
       
     and node10 (_stack: stack) (input: token list) =
            match input with
-             | (Literal _value as _head) :: _input' -> begin
-                let _stack = (State_node11, Term _head, StackValue_Literal (_value)) :: _stack in
-               node11 _stack _input'
+             | [ (* EOF *) ] as _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v3 = (match typ, tmp with
+                | NonTerm Token_CaseList, StackValue_CaseList v -> v
+                | _ -> raise_msg ("expected token CaseList")) in
+                ignore v3;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Literal _, StackValue_Literal v -> v
+                | _ -> raise_msg ("expected token `Literal`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Colon, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Colon`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( (v0, v2, v3) ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Rule before in
+                let _stack = (goto_id, NonTerm Token_Rule, StackValue_Rule _value) :: _stack in
+                goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Literal` (Literal)} in state node10."))
+             | (Ident _value as _head) :: _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v3 = (match typ, tmp with
+                | NonTerm Token_CaseList, StackValue_CaseList v -> v
+                | _ -> raise_msg ("expected token CaseList")) in
+                ignore v3;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Literal _, StackValue_Literal v -> v
+                | _ -> raise_msg ("expected token `Literal`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Colon, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Colon`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( (v0, v2, v3) ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Rule before in
+                let _stack = (goto_id, NonTerm Token_Rule, StackValue_Rule _value) :: _stack in
+                goto _stack input
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node10", input)))
       
     and node11 (_stack: stack) (input: token list) =
            match input with
@@ -142,190 +195,99 @@
              end
   
              | (Pipe as _head) :: _input' -> begin
-                let _stack = (State_node15, Term _head, StackValue_None) :: _stack in
-               node15 _stack _input'
+                let _stack = (State_node13, Term _head, StackValue_None) :: _stack in
+               node13 _stack _input'
              end
   
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident), `Pipe` (Pipe)} in state node11."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"; "Pipe"], "node11", input)))
       
     and node12 (_stack: stack) (input: token list) =
            match input with
              | [ (* EOF *) ] as _input' -> begin
                 let (_, typ, tmp), _stack = pop_stack _stack in
-                let v3 = (match typ, tmp with
-                | NonTerm Token_CaseList, StackValue_CaseList v -> v
-                | _ -> raise (Parse_error "expected token CaseList")) in
-                ignore v3;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
                 let v1 = (match typ, tmp with
-                | Term Colon, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Colon`")) in
+                | NonTerm Token_CaseList, StackValue_CaseList v -> v
+                | _ -> raise_msg ("expected token CaseList")) in
                 ignore v1;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
+                | NonTerm Token_Case, StackValue_Case v -> v
+                | _ -> raise_msg ("expected token Case")) in
                 ignore v0;
-                let _value = ( (v0, v2, v3) ) in
+                let _value = ( v0 :: v1 ) in
                 
                 let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Rule before in
-                let _stack = (goto_id, NonTerm Token_Rule, StackValue_Rule _value) :: _stack in
+                let goto, goto_id = goto_CaseList before in
+                let _stack = (goto_id, NonTerm Token_CaseList, StackValue_CaseList _value) :: _stack in
                 goto _stack input
              end
   
              | (Ident _value as _head) :: _input' -> begin
                 let (_, typ, tmp), _stack = pop_stack _stack in
-                let v3 = (match typ, tmp with
-                | NonTerm Token_CaseList, StackValue_CaseList v -> v
-                | _ -> raise (Parse_error "expected token CaseList")) in
-                ignore v3;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
                 let v1 = (match typ, tmp with
-                | Term Colon, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Colon`")) in
+                | NonTerm Token_CaseList, StackValue_CaseList v -> v
+                | _ -> raise_msg ("expected token CaseList")) in
                 ignore v1;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
+                | NonTerm Token_Case, StackValue_Case v -> v
+                | _ -> raise_msg ("expected token Case")) in
                 ignore v0;
-                let _value = ( (v0, v2, v3) ) in
+                let _value = ( v0 :: v1 ) in
                 
                 let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Rule before in
-                let _stack = (goto_id, NonTerm Token_Rule, StackValue_Rule _value) :: _stack in
+                let goto, goto_id = goto_CaseList before in
+                let _stack = (goto_id, NonTerm Token_CaseList, StackValue_CaseList _value) :: _stack in
                 goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node12."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node12", input)))
       
     and node13 (_stack: stack) (input: token list) =
            match input with
-             | [ (* EOF *) ] as _input' -> begin
-                
-                let _value = ( [] ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_CaseList before in
-                let _stack = (goto_id, NonTerm Token_CaseList, StackValue_CaseList _value) :: _stack in
-                goto _stack input
-             end
-  
              | (Ident _value as _head) :: _input' -> begin
+                let _stack = (State_node16, Term _head, StackValue_Ident (_value)) :: _stack in
+               node16 _stack _input'
+             end
+  
+             | (Literal _value as _head) :: _input' -> begin
                 
                 let _value = ( [] ) in
                 
                 let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_CaseList before in
-                let _stack = (goto_id, NonTerm Token_CaseList, StackValue_CaseList _value) :: _stack in
+                let goto, goto_id = goto_Idents before in
+                let _stack = (goto_id, NonTerm Token_Idents, StackValue_Idents _value) :: _stack in
                 goto _stack input
              end
   
-             | (Pipe as _head) :: _input' -> begin
-                let _stack = (State_node15, Term _head, StackValue_None) :: _stack in
-               node15 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident), `Pipe` (Pipe)} in state node13."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"; "Literal"], "node13", input)))
       
     and node14 (_stack: stack) (input: token list) =
            match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | NonTerm Token_CaseList, StackValue_CaseList v -> v
-                | _ -> raise (Parse_error "expected token CaseList")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | NonTerm Token_Case, StackValue_Case v -> v
-                | _ -> raise (Parse_error "expected token Case")) in
-                ignore v0;
-                let _value = ( v0 :: v1 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_CaseList before in
-                let _stack = (goto_id, NonTerm Token_CaseList, StackValue_CaseList _value) :: _stack in
-                goto _stack input
+             | (Literal _value as _head) :: _input' -> begin
+                let _stack = (State_node15, Term _head, StackValue_Literal (_value)) :: _stack in
+               node15 _stack _input'
              end
   
-             | (Ident _value as _head) :: _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | NonTerm Token_CaseList, StackValue_CaseList v -> v
-                | _ -> raise (Parse_error "expected token CaseList")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | NonTerm Token_Case, StackValue_Case v -> v
-                | _ -> raise (Parse_error "expected token Case")) in
-                ignore v0;
-                let _value = ( v0 :: v1 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_CaseList before in
-                let _stack = (goto_id, NonTerm Token_CaseList, StackValue_CaseList _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node14."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Literal"], "node14", input)))
       
     and node15 (_stack: stack) (input: token list) =
-           match input with
-             | (Ident _value as _head) :: _input' -> begin
-                let _stack = (State_node18, Term _head, StackValue_Ident (_value)) :: _stack in
-               node18 _stack _input'
-             end
-  
-             | (Literal _value as _head) :: _input' -> begin
-                
-                let _value = ( [] ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Idents before in
-                let _stack = (goto_id, NonTerm Token_Idents, StackValue_Idents _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`Ident` (Ident), `Literal` (Literal)} in state node15."))
-      
-    and node16 (_stack: stack) (input: token list) =
-           match input with
-             | (Literal _value as _head) :: _input' -> begin
-                let _stack = (State_node17, Term _head, StackValue_Literal (_value)) :: _stack in
-               node17 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`Literal` (Literal)} in state node16."))
-      
-    and node17 (_stack: stack) (input: token list) =
            match input with
              | [ (* EOF *) ] as _input' -> begin
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v2 = (match typ, tmp with
                 | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
+                | _ -> raise_msg ("expected token `Literal`")) in
                 ignore v2;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v1 = (match typ, tmp with
                 | NonTerm Token_Idents, StackValue_Idents v -> v
-                | _ -> raise (Parse_error "expected token Idents")) in
+                | _ -> raise_msg ("expected token Idents")) in
                 ignore v1;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
                 | Term Pipe, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Pipe`")) in
+                | _ -> raise_msg ("expected token `Pipe`")) in
                 ignore v0;
                 let _value = ( v1, v2 ) in
                 
@@ -339,17 +301,17 @@
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v2 = (match typ, tmp with
                 | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
+                | _ -> raise_msg ("expected token `Literal`")) in
                 ignore v2;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v1 = (match typ, tmp with
                 | NonTerm Token_Idents, StackValue_Idents v -> v
-                | _ -> raise (Parse_error "expected token Idents")) in
+                | _ -> raise_msg ("expected token Idents")) in
                 ignore v1;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
                 | Term Pipe, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Pipe`")) in
+                | _ -> raise_msg ("expected token `Pipe`")) in
                 ignore v0;
                 let _value = ( v1, v2 ) in
                 
@@ -363,17 +325,17 @@
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v2 = (match typ, tmp with
                 | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
+                | _ -> raise_msg ("expected token `Literal`")) in
                 ignore v2;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v1 = (match typ, tmp with
                 | NonTerm Token_Idents, StackValue_Idents v -> v
-                | _ -> raise (Parse_error "expected token Idents")) in
+                | _ -> raise_msg ("expected token Idents")) in
                 ignore v1;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
                 | Term Pipe, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Pipe`")) in
+                | _ -> raise_msg ("expected token `Pipe`")) in
                 ignore v0;
                 let _value = ( v1, v2 ) in
                 
@@ -383,13 +345,13 @@
                 goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident), `Pipe` (Pipe)} in state node17."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"; "Pipe"], "node15", input)))
       
-    and node18 (_stack: stack) (input: token list) =
+    and node16 (_stack: stack) (input: token list) =
            match input with
              | (Ident _value as _head) :: _input' -> begin
-                let _stack = (State_node18, Term _head, StackValue_Ident (_value)) :: _stack in
-               node18 _stack _input'
+                let _stack = (State_node16, Term _head, StackValue_Ident (_value)) :: _stack in
+               node16 _stack _input'
              end
   
              | (Literal _value as _head) :: _input' -> begin
@@ -402,20 +364,20 @@
                 goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Ident` (Ident), `Literal` (Literal)} in state node18."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"; "Literal"], "node16", input)))
       
-    and node19 (_stack: stack) (input: token list) =
+    and node17 (_stack: stack) (input: token list) =
            match input with
              | (Literal _value as _head) :: _input' -> begin
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v1 = (match typ, tmp with
                 | NonTerm Token_Idents, StackValue_Idents v -> v
-                | _ -> raise (Parse_error "expected token Idents")) in
+                | _ -> raise_msg ("expected token Idents")) in
                 ignore v1;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
                 | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
+                | _ -> raise_msg ("expected token `Ident`")) in
                 ignore v0;
                 let _value = ( v0 :: v1 ) in
                 
@@ -425,18 +387,9 @@
                 goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Literal` (Literal)} in state node19."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Literal"], "node17", input)))
       
-    and node2 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let _stack = (State_node3, TermEof, StackValue_None) :: _stack in
-               node3 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($)} in state node2."))
-      
-    and node20 (_stack: stack) (input: token list) =
+    and node18 (_stack: stack) (input: token list) =
            match input with
              | [ (* EOF *) ] as _input' -> begin
                 
@@ -449,284 +402,384 @@
              end
   
              | (Ident _value as _head) :: _input' -> begin
+                let _stack = (State_node21, Term _head, StackValue_Ident (_value)) :: _stack in
+               node21 _stack _input'
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node18", input)))
+      
+    and node19 (_stack: stack) (input: token list) =
+           match input with
+             | [ (* EOF *) ] as _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | NonTerm Token_Rules, StackValue_Rules v -> v
+                | _ -> raise_msg ("expected token Rules")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | NonTerm Token_Configs, StackValue_Configs v -> v
+                | _ -> raise_msg ("expected token Configs")) in
+                ignore v0;
+                let _value = ({
+        spec_configs = v0
+      ; spec_rules = v1
+      }) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Grammar before in
+                let _stack = (goto_id, NonTerm Token_Grammar, StackValue_Grammar _value) :: _stack in
+                goto _stack input
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken ([], "node19", input)))
+      
+    and node2 (_stack: stack) (input: token list) =
+           match input with
+             | [ (* EOF *) ] as _input' -> begin
+                let _stack = (State_node3, TermEof, StackValue_None) :: _stack in
+               node3 _stack _input'
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken ([], "node2", input)))
+      
+    and node20 (_stack: stack) (input: token list) =
+           match input with
+             | [ (* EOF *) ] as _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | NonTerm Token_Config, StackValue_Config v -> v
+                | _ -> raise_msg ("expected token Config")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | NonTerm Token_Configs, StackValue_Configs v -> v
+                | _ -> raise_msg ("expected token Configs")) in
+                ignore v0;
+                let _value = ( v1 :: v0 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Configs before in
+                let _stack = (goto_id, NonTerm Token_Configs, StackValue_Configs _value) :: _stack in
+                goto _stack input
+             end
+  
+             | (Ident _value as _head) :: _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | NonTerm Token_Config, StackValue_Config v -> v
+                | _ -> raise_msg ("expected token Config")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | NonTerm Token_Configs, StackValue_Configs v -> v
+                | _ -> raise_msg ("expected token Configs")) in
+                ignore v0;
+                let _value = ( v1 :: v0 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Configs before in
+                let _stack = (goto_id, NonTerm Token_Configs, StackValue_Configs _value) :: _stack in
+                goto _stack input
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node20", input)))
+      
+    and node21 (_stack: stack) (input: token list) =
+           match input with
+             | (Colon as _head) :: _input' -> begin
+                let _stack = (State_node8, Term _head, StackValue_None) :: _stack in
+               node8 _stack _input'
+             end
+  
+             | (Equals as _head) :: _input' -> begin
+                let _stack = (State_node22, Term _head, StackValue_None) :: _stack in
+               node22 _stack _input'
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Colon"; "Equals"], "node21", input)))
+      
+    and node22 (_stack: stack) (input: token list) =
+           match input with
+             | (Ident _value as _head) :: _input' -> begin
                 let _stack = (State_node23, Term _head, StackValue_Ident (_value)) :: _stack in
                node23 _stack _input'
              end
   
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node20."))
-      
-    and node21 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v3 = (match typ, tmp with
-                | NonTerm Token_Rules, StackValue_Rules v -> v
-                | _ -> raise (Parse_error "expected token Rules")) in
-                ignore v3;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | NonTerm Token_Configs, StackValue_Configs v -> v
-                | _ -> raise (Parse_error "expected token Configs")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | NonTerm Token_PreludeSpec, StackValue_PreludeSpec v -> v
-                | _ -> raise (Parse_error "expected token PreludeSpec")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | NonTerm Token_TargetSpec, StackValue_TargetSpec v -> v
-                | _ -> raise (Parse_error "expected token TargetSpec")) in
-                ignore v0;
-                let _value = ({
-        spec_target = v0
-      ; spec_prelude = v1
-      ; spec_tokens = []
-      ; spec_configs = v2
-      ; spec_rules = v3
-      }) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Entry before in
-                let _stack = (goto_id, NonTerm Token_Entry, StackValue_Entry _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($)} in state node21."))
-      
-    and node22 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | NonTerm Token_Config, StackValue_Config v -> v
-                | _ -> raise (Parse_error "expected token Config")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | NonTerm Token_Configs, StackValue_Configs v -> v
-                | _ -> raise (Parse_error "expected token Configs")) in
-                ignore v0;
-                let _value = ( v1 :: v0 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Configs before in
-                let _stack = (goto_id, NonTerm Token_Configs, StackValue_Configs _value) :: _stack in
-                goto _stack input
-             end
-  
-             | (Ident _value as _head) :: _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | NonTerm Token_Config, StackValue_Config v -> v
-                | _ -> raise (Parse_error "expected token Config")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | NonTerm Token_Configs, StackValue_Configs v -> v
-                | _ -> raise (Parse_error "expected token Configs")) in
-                ignore v0;
-                let _value = ( v1 :: v0 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Configs before in
-                let _stack = (goto_id, NonTerm Token_Configs, StackValue_Configs _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node22."))
-      
-    and node23 (_stack: stack) (input: token list) =
-           match input with
-             | (Colon as _head) :: _input' -> begin
-                let _stack = (State_node10, Term _head, StackValue_None) :: _stack in
-               node10 _stack _input'
-             end
-  
-             | (Equals as _head) :: _input' -> begin
-                let _stack = (State_node24, Term _head, StackValue_None) :: _stack in
+             | (Literal _value as _head) :: _input' -> begin
+                let _stack = (State_node24, Term _head, StackValue_Literal (_value)) :: _stack in
                node24 _stack _input'
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Colon` (Colon), `Equals` (Equals)} in state node23."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"; "Literal"], "node22", input)))
+      
+    and node23 (_stack: stack) (input: token list) =
+           match input with
+             | [ (* EOF *) ] as _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Equals, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Equals`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( v0, v2 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Config before in
+                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                goto _stack input
+             end
+  
+             | (Ident _value as _head) :: _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Equals, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Equals`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( v0, v2 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Config before in
+                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                goto _stack input
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node23", input)))
       
     and node24 (_stack: stack) (input: token list) =
            match input with
+             | [ (* EOF *) ] as _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Literal _, StackValue_Literal v -> v
+                | _ -> raise_msg ("expected token `Literal`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Equals, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Equals`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( v0, v2 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Config before in
+                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                goto _stack input
+             end
+  
              | (Ident _value as _head) :: _input' -> begin
-                let _stack = (State_node25, Term _head, StackValue_Ident (_value)) :: _stack in
-               node25 _stack _input'
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Literal _, StackValue_Literal v -> v
+                | _ -> raise_msg ("expected token `Literal`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Equals, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Equals`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( v0, v2 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Config before in
+                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                goto _stack input
              end
   
-             | (Literal _value as _head) :: _input' -> begin
-                let _stack = (State_node26, Term _head, StackValue_Literal (_value)) :: _stack in
-               node26 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`Ident` (Ident), `Literal` (Literal)} in state node24."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node24", input)))
       
     and node25 (_stack: stack) (input: token list) =
            match input with
              | [ (* EOF *) ] as _input' -> begin
                 let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
+                | NonTerm Token_Config, StackValue_Config v -> v
+                | _ -> raise_msg ("expected token Config")) in
                 ignore v0;
-                let _value = ( v0, v2 ) in
+                let _value = ( [v0] ) in
                 
                 let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Config before in
-                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                let goto, goto_id = goto_Configs before in
+                let _stack = (goto_id, NonTerm Token_Configs, StackValue_Configs _value) :: _stack in
                 goto _stack input
              end
   
              | (Ident _value as _head) :: _input' -> begin
                 let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
+                | NonTerm Token_Config, StackValue_Config v -> v
+                | _ -> raise_msg ("expected token Config")) in
                 ignore v0;
-                let _value = ( v0, v2 ) in
+                let _value = ( [v0] ) in
                 
                 let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Config before in
-                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                let goto, goto_id = goto_Configs before in
+                let _stack = (goto_id, NonTerm Token_Configs, StackValue_Configs _value) :: _stack in
                 goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node25."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node25", input)))
       
     and node26 (_stack: stack) (input: token list) =
            match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v0;
-                let _value = ( v0, v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Config before in
-                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
-                goto _stack input
-             end
-  
-             | (Ident _value as _head) :: _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v0;
-                let _value = ( v0, v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Config before in
-                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node26."))
-      
-    and node27 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | NonTerm Token_Config, StackValue_Config v -> v
-                | _ -> raise (Parse_error "expected token Config")) in
-                ignore v0;
-                let _value = ( [v0] ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Configs before in
-                let _stack = (goto_id, NonTerm Token_Configs, StackValue_Configs _value) :: _stack in
-                goto _stack input
-             end
-  
-             | (Ident _value as _head) :: _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | NonTerm Token_Config, StackValue_Config v -> v
-                | _ -> raise (Parse_error "expected token Config")) in
-                ignore v0;
-                let _value = ( [v0] ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Configs before in
-                let _stack = (goto_id, NonTerm Token_Configs, StackValue_Configs _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node27."))
-      
-    and node28 (_stack: stack) (input: token list) =
-           match input with
              | (Colon as _head) :: _input' -> begin
-                let _stack = (State_node10, Term _head, StackValue_None) :: _stack in
-               node10 _stack _input'
+                let _stack = (State_node8, Term _head, StackValue_None) :: _stack in
+               node8 _stack _input'
              end
   
              | (Equals as _head) :: _input' -> begin
-                let _stack = (State_node29, Term _head, StackValue_None) :: _stack in
-               node29 _stack _input'
+                let _stack = (State_node27, Term _head, StackValue_None) :: _stack in
+               node27 _stack _input'
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Colon` (Colon), `Equals` (Equals)} in state node28."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Colon"; "Equals"], "node26", input)))
       
-    and node29 (_stack: stack) (input: token list) =
+    and node27 (_stack: stack) (input: token list) =
            match input with
              | (Ident _value as _head) :: _input' -> begin
-                let _stack = (State_node30, Term _head, StackValue_Ident (_value)) :: _stack in
-               node30 _stack _input'
+                let _stack = (State_node28, Term _head, StackValue_Ident (_value)) :: _stack in
+               node28 _stack _input'
              end
   
              | (Literal _value as _head) :: _input' -> begin
-                let _stack = (State_node31, Term _head, StackValue_Literal (_value)) :: _stack in
-               node31 _stack _input'
+                let _stack = (State_node29, Term _head, StackValue_Literal (_value)) :: _stack in
+               node29 _stack _input'
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Ident` (Ident), `Literal` (Literal)} in state node29."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"; "Literal"], "node27", input)))
+      
+    and node28 (_stack: stack) (input: token list) =
+           match input with
+             | [ (* EOF *) ] as _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Equals, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Equals`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( v0, v2 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Config before in
+                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                goto _stack input
+             end
+  
+             | (Ident _value as _head) :: _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Equals, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Equals`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( v0, v2 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Config before in
+                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                goto _stack input
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node28", input)))
+      
+    and node29 (_stack: stack) (input: token list) =
+           match input with
+             | [ (* EOF *) ] as _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Literal _, StackValue_Literal v -> v
+                | _ -> raise_msg ("expected token `Literal`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Equals, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Equals`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( v0, v2 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Config before in
+                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                goto _stack input
+             end
+  
+             | (Ident _value as _head) :: _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v2 = (match typ, tmp with
+                | Term Literal _, StackValue_Literal v -> v
+                | _ -> raise_msg ("expected token `Literal`")) in
+                ignore v2;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v1 = (match typ, tmp with
+                | Term Equals, StackValue_None -> ()
+                | _ -> raise_msg ("expected token `Equals`")) in
+                ignore v1;
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | Term Ident _, StackValue_Ident v -> v
+                | _ -> raise_msg ("expected token `Ident`")) in
+                ignore v0;
+                let _value = ( v0, v2 ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Config before in
+                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
+                goto _stack input
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node29", input)))
       
     and node3 (_stack: stack) (input: token list) =
            match input with
@@ -734,247 +787,39 @@
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v1 = (match typ, tmp with
                 | TermEof, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `$`")) in
+                | _ -> raise_msg ("expected token `$`")) in
                 ignore v1;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
-                | NonTerm Token_Entry, StackValue_Entry v -> v
-                | _ -> raise (Parse_error "expected token Entry")) in
+                | NonTerm Token_Grammar, StackValue_Grammar v -> v
+                | _ -> raise_msg ("expected token Grammar")) in
                 ignore v0;
                 let _value = (v0) in
                 _value
              end
   
-             | _ -> raise (Parse_error ("expected one of {`$` ($)} in state node3."))
-      
-    and node30 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v0;
-                let _value = ( v0, v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Config before in
-                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
-                goto _stack input
-             end
-  
-             | (Ident _value as _head) :: _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v0;
-                let _value = ( v0, v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Config before in
-                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node30."))
-      
-    and node31 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v0;
-                let _value = ( v0, v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Config before in
-                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
-                goto _stack input
-             end
-  
-             | (Ident _value as _head) :: _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v0;
-                let _value = ( v0, v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Config before in
-                let _stack = (goto_id, NonTerm Token_Config, StackValue_Config _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node31."))
-      
-    and node32 (_stack: stack) (input: token list) =
-           match input with
-             | (Equals as _head) :: _input' -> begin
-                let _stack = (State_node33, Term _head, StackValue_None) :: _stack in
-               node33 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`Equals` (Equals)} in state node32."))
-      
-    and node33 (_stack: stack) (input: token list) =
-           match input with
-             | (Literal _value as _head) :: _input' -> begin
-                let _stack = (State_node34, Term _head, StackValue_Literal (_value)) :: _stack in
-               node34 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`Literal` (Literal)} in state node33."))
-      
-    and node34 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Prelude, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Prelude`")) in
-                ignore v0;
-                let _value = ( v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_PreludeSpec before in
-                let _stack = (goto_id, NonTerm Token_PreludeSpec, StackValue_PreludeSpec _value) :: _stack in
-                goto _stack input
-             end
-  
-             | (Ident _value as _head) :: _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Literal _, StackValue_Literal v -> v
-                | _ -> raise (Parse_error "expected token `Literal`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Prelude, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Prelude`")) in
-                ignore v0;
-                let _value = ( v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_PreludeSpec before in
-                let _stack = (goto_id, NonTerm Token_PreludeSpec, StackValue_PreludeSpec _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node34."))
-      
-    and node35 (_stack: stack) (input: token list) =
-           match input with
-             | (Equals as _head) :: _input' -> begin
-                let _stack = (State_node36, Term _head, StackValue_None) :: _stack in
-               node36 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`Equals` (Equals)} in state node35."))
-      
-    and node36 (_stack: stack) (input: token list) =
-           match input with
-             | (Ident _value as _head) :: _input' -> begin
-                let _stack = (State_node37, Term _head, StackValue_Ident (_value)) :: _stack in
-               node37 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`Ident` (Ident)} in state node36."))
-      
-    and node37 (_stack: stack) (input: token list) =
-           match input with
-             | (Prelude as _head) :: _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | Term Ident _, StackValue_Ident v -> v
-                | _ -> raise (Parse_error "expected token `Ident`")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | Term Equals, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Equals`")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | Term Target, StackValue_None -> ()
-                | _ -> raise (Parse_error "expected token `Target`")) in
-                ignore v0;
-                let _value = ( v2 ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_TargetSpec before in
-                let _stack = (goto_id, NonTerm Token_TargetSpec, StackValue_TargetSpec _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`Prelude` (Prelude)} in state node37."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken ([], "node3", input)))
       
     and node4 (_stack: stack) (input: token list) =
            match input with
-             | (Prelude as _head) :: _input' -> begin
-                let _stack = (State_node32, Term _head, StackValue_None) :: _stack in
-               node32 _stack _input'
+             | [ (* EOF *) ] as _input' -> begin
+                let (_, typ, tmp), _stack = pop_stack _stack in
+                let v0 = (match typ, tmp with
+                | NonTerm Token_Rules, StackValue_Rules v -> v
+                | _ -> raise_msg ("expected token Rules")) in
+                ignore v0;
+                let _value = ({
+        spec_configs = []
+      ; spec_rules = v0
+      }) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_Grammar before in
+                let _stack = (goto_id, NonTerm Token_Grammar, StackValue_Grammar _value) :: _stack in
+                goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Prelude` (Prelude)} in state node4."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken ([], "node4", input)))
       
     and node5 (_stack: stack) (input: token list) =
            match input with
@@ -989,77 +834,24 @@
              end
   
              | (Ident _value as _head) :: _input' -> begin
-                let _stack = (State_node28, Term _head, StackValue_Ident (_value)) :: _stack in
-               node28 _stack _input'
+                let _stack = (State_node7, Term _head, StackValue_Ident (_value)) :: _stack in
+               node7 _stack _input'
              end
   
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node5."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"], "node5", input)))
       
     and node6 (_stack: stack) (input: token list) =
            match input with
              | [ (* EOF *) ] as _input' -> begin
                 let (_, typ, tmp), _stack = pop_stack _stack in
-                let v2 = (match typ, tmp with
-                | NonTerm Token_Rules, StackValue_Rules v -> v
-                | _ -> raise (Parse_error "expected token Rules")) in
-                ignore v2;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v1 = (match typ, tmp with
-                | NonTerm Token_PreludeSpec, StackValue_PreludeSpec v -> v
-                | _ -> raise (Parse_error "expected token PreludeSpec")) in
-                ignore v1;
-                let (_, typ, tmp), _stack = pop_stack _stack in
-                let v0 = (match typ, tmp with
-                | NonTerm Token_TargetSpec, StackValue_TargetSpec v -> v
-                | _ -> raise (Parse_error "expected token TargetSpec")) in
-                ignore v0;
-                let _value = ({
-        spec_target = v0
-      ; spec_prelude = v1
-      ; spec_tokens = []
-      ; spec_configs = []
-      ; spec_rules = v2
-      }) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Entry before in
-                let _stack = (goto_id, NonTerm Token_Entry, StackValue_Entry _value) :: _stack in
-                goto _stack input
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($)} in state node6."))
-      
-    and node7 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                
-                let _value = ( [] ) in
-                
-                let (before, _, _) = List.hd _stack in
-                let goto, goto_id = goto_Rules before in
-                let _stack = (goto_id, NonTerm Token_Rules, StackValue_Rules _value) :: _stack in
-                goto _stack input
-             end
-  
-             | (Ident _value as _head) :: _input' -> begin
-                let _stack = (State_node9, Term _head, StackValue_Ident (_value)) :: _stack in
-               node9 _stack _input'
-             end
-  
-             | _ -> raise (Parse_error ("expected one of {`$` ($), `Ident` (Ident)} in state node7."))
-      
-    and node8 (_stack: stack) (input: token list) =
-           match input with
-             | [ (* EOF *) ] as _input' -> begin
-                let (_, typ, tmp), _stack = pop_stack _stack in
                 let v1 = (match typ, tmp with
                 | NonTerm Token_Rules, StackValue_Rules v -> v
-                | _ -> raise (Parse_error "expected token Rules")) in
+                | _ -> raise_msg ("expected token Rules")) in
                 ignore v1;
                 let (_, typ, tmp), _stack = pop_stack _stack in
                 let v0 = (match typ, tmp with
                 | NonTerm Token_Rule, StackValue_Rule v -> v
-                | _ -> raise (Parse_error "expected token Rule")) in
+                | _ -> raise_msg ("expected token Rule")) in
                 ignore v0;
                 let _value = ( v0 :: v1 ) in
                 
@@ -1069,16 +861,54 @@
                 goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`$` ($)} in state node8."))
+             | _ -> raise (Parse_error (ErrUnexpectedToken ([], "node6", input)))
+      
+    and node7 (_stack: stack) (input: token list) =
+           match input with
+             | (Colon as _head) :: _input' -> begin
+                let _stack = (State_node8, Term _head, StackValue_None) :: _stack in
+               node8 _stack _input'
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Colon"], "node7", input)))
+      
+    and node8 (_stack: stack) (input: token list) =
+           match input with
+             | (Literal _value as _head) :: _input' -> begin
+                let _stack = (State_node9, Term _head, StackValue_Literal (_value)) :: _stack in
+               node9 _stack _input'
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Literal"], "node8", input)))
       
     and node9 (_stack: stack) (input: token list) =
            match input with
-             | (Colon as _head) :: _input' -> begin
-                let _stack = (State_node10, Term _head, StackValue_None) :: _stack in
-               node10 _stack _input'
+             | [ (* EOF *) ] as _input' -> begin
+                
+                let _value = ( [] ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_CaseList before in
+                let _stack = (goto_id, NonTerm Token_CaseList, StackValue_CaseList _value) :: _stack in
+                goto _stack input
              end
   
-             | _ -> raise (Parse_error ("expected one of {`Colon` (Colon)} in state node9."))
+             | (Ident _value as _head) :: _input' -> begin
+                
+                let _value = ( [] ) in
+                
+                let (before, _, _) = List.hd _stack in
+                let goto, goto_id = goto_CaseList before in
+                let _stack = (goto_id, NonTerm Token_CaseList, StackValue_CaseList _value) :: _stack in
+                goto _stack input
+             end
+  
+             | (Pipe as _head) :: _input' -> begin
+                let _stack = (State_node13, Term _head, StackValue_None) :: _stack in
+               node13 _stack _input'
+             end
+  
+             | _ -> raise (Parse_error (ErrUnexpectedToken (["Ident"; "Pipe"], "node9", input)))
       
 
     in

@@ -53,4 +53,15 @@ module Option = struct
   include Option
 
   let unwrap_or default = fold ~none:default ~some:id
+
+  (** fish operator *)
+  let ( ><> ) opt or_else =
+    match opt with
+    | Some x -> Some x
+    | None -> or_else ()
+
+
+  let unwrap ?(exn = Failure "Unwrapped a None value") = function
+    | None -> raise exn
+    | Some x -> x
 end

@@ -116,7 +116,7 @@ let mk_grammar (entry, grammar) : 'a grammar =
     (fun (rule, _, _) ->
       if rule = "S0"
       then
-        failwith "grammar may not contain nonterminal 'S', because it is used internally")
+        failwith "grammar may not contain nonterminal 'S0', because it is used internally")
     grammar;
   ("S0", [ NonTerm entry; Term "$" ], "v0") :: grammar
 

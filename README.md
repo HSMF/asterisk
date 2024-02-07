@@ -86,3 +86,9 @@ If using dune, add the following rule to your `dune` file.
 - support N languages by establishing some table IR and emitting that ?
 - lexer generator
 - doc: language specific expression rules
+- naming fields in grammar spec
+  - `| left=Expr Plus right=Expr {left + right}`
+  - equivalent to `| Expr Plus Expr {v0 + v2}`
+  - requires:metadata for grammar
+- automatically factor grammar to make it more lr(1)
+  - requires:metadata for grammar

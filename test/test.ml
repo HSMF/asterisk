@@ -63,10 +63,10 @@ let tests =
             Lib.Spec.Lex.(
               let a = Ident "A" in
               let b = Ident "B" in
-              [ Target
+              [ Ident "TARGET"
               ; Equals
               ; Ident "ocaml"
-              ; Prelude
+              ; Ident "PRELUDE"
               ; Equals
               ; Literal "\n    open Lex\n"
               ; a

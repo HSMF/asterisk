@@ -2,6 +2,10 @@
 
 Not the most efficient parser generator but it's cool, I guess<sup>TM</sup>
 
+## Installation
+
+Clone this repo and run `dune install`. Requires ocaml >= 5.1.0
+
 ## Development
 
 To run the generator, execute this:
@@ -10,12 +14,13 @@ To run the generator, execute this:
 dune exec -- ./main.exe
 ```
 
-This will generate several files, TODO: only generate on demand
+This will generate several files,
 
-- `table.html`
-- `hey.dot`
-- `parser.js`
-- `parser.java`
+- `output/table.html` -- if the -emit-html flag is set
+- `output/dfa.dot` -- if the -emit-dot flag is set
+- `output/parser.js`
+- `output/parser.java`
+- `output/parser.ml`
 
 To generate a graph of the DFA, `graphviz` is required to be installed:
 
@@ -40,6 +45,8 @@ rule: type
   | case 1 -> { expression if matched }
   | case 2 -> { expression if matched }
 ```
+
+`TARGET`, `PRELUDE`, `ENTRY` are case insensitive
 
 Supported values for `TARGET` are
 

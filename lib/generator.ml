@@ -53,6 +53,52 @@ and state =
   ; lookahead : TokenS.t
   }
 
+let string_of_state { rule; before; after; lookahead } =
+  sp
+    "%s -> %s . %s %s"
+    rule
+    (sl Token.to_string " " before)
+    (sl Token.to_string " " after)
+    (TokenS.to_string lookahead)
+
+
+module State = struct
+  type t = state
+
+  let compare (a : t) (b : t) =
+    match
+      ( String.compare a.rule b.rule
+      , List.compare Token.compare a.before b.before
+      , List.compare Token.compare a.after b.after
+      , TokenS.compare a.lookahead b.lookahead )
+    with
+    | x, _, _, _ when x <> 0 -> x
+    | _, x, _, _ when x <> 0 -> x
+    | _, _, x, _ when x <> 0 -> x
+    | _, _, _, x when x <> 0 -> x
+    | _, _, _, _ -> 0
+
+
+  (* let cmp = String.compare a.rule b.rule in *)
+  (* if cmp <> 0 *)
+  (* then cmp *)
+  (* else ( *)
+  (*   let cmp = List.compare Token.compare a.before b.before in *)
+  (*   if cmp <> 0 *)
+  (*   then cmp *)
+  (*   else ( *)
+  (*     let cmp = List.compare Token.compare a.after b.after in *)
+  (*     if cmp <> 0 *)
+  (*     then cmp *)
+  (*     else ( *)
+  (*       let cmp = TokenS.compare a.lookahead b.lookahead in *)
+  (*       if cmp <> 0 then cmp else 0))) *)
+
+  let to_string = string_of_state
+end
+
+module StateS = MakeSet (State)
+
 type graph = (state list * token UidM.t) Datastructures.UidM.t
 
 let string_of_token = Token.to_string
@@ -61,17 +107,10 @@ let rec fix ?(eq = ( = )) ?(print = const "") f init =
   let fixed = f init in
   if eq fixed init
   then init
-  else (* printf "%s <> %s\n" (print fixed) (print init); *)
+  else begin
+    (* printf "%s <> %s\n" (print fixed) (print init); *)
     fix ~print ~eq f fixed
-
-
-let string_of_state { rule; before; after; lookahead } =
-  sp
-    "%s -> %s . %s %s"
-    rule
-    (sl string_of_token " " before)
-    (sl string_of_token " " after)
-    (TokenS.to_string lookahead)
+  end
 
 
 let is_reduction = function
@@ -125,28 +164,58 @@ let productions grammar rule_name =
   List.filter_map (fun (k, v, _) -> if k = rule_name then Some v else None) grammar
 
 
-let first_set grammar (rule : token) : TokenS.t =
-  let pass (firsts : TokenS.t) =
-    firsts
-    |> TokenS.to_list
-    |> List.filter_map Token.non_term
-    |> List.map (fun x ->
-      productions grammar x
-      |> List.map (function
-        | [] -> Term "<empty>"
-        | x :: _ -> x)
-      |> TokenS.of_list)
-    |> List.fold_left (fun ac x -> TokenS.union x ac) firsts
-  in
-  fix
-    ~eq:(fun a b -> TokenS.compare a b = 0)
-    ~print:TokenS.to_string
-    pass
-    (TokenS.of_list [ rule ])
-  |> TokenS.to_list
-  |> List.filter (fun x -> Option.is_some @@ Token.term x)
-  |> TokenS.of_list
 
+let empty = Term "<empty>"
+
+let first_set (grammar : 'a grammar) (rule : token) : TokenS.t =
+  let rec first_set rule =
+    let rec follow (rules : token list) =
+      match rules with
+      | [] -> TokenS.singleton empty
+      | first :: more ->
+        let fst = first_set first in
+        if TokenS.mem empty fst
+        then fst |> TokenS.remove empty |> TokenS.union (follow more)
+        else fst
+    in
+    let fold acc toks = TokenS.union acc @@ follow toks in
+    match rule with
+    | NonTerm rule ->
+      printf "non term %s\n" rule;
+      let prods = productions grammar rule in
+      List.fold_left fold TokenS.empty prods
+    | Term _ -> TokenS.singleton rule
+  in
+  first_set rule
+
+
+let rec first grammar (rules : token list) : TokenS.t =
+  match rules with
+  | [] -> TokenS.singleton empty
+  | Term t :: _ -> TokenS.singleton (Term t)
+  | NonTerm nt :: more ->
+    let productions = productions grammar nt in
+    let self, other =
+      List.partition
+        (function
+          | NonTerm x :: _ when x = nt -> true
+          | _ -> false)
+        productions
+    in
+    let extend acc x = TokenS.union acc @@ first grammar x in
+    let firsts = List.fold_left extend TokenS.empty other in
+    let remove x = if List.is_empty more then x else TokenS.remove empty x in
+    let firsts =
+      if TokenS.mem empty firsts && not (List.is_empty self)
+      then List.fold_left extend (remove firsts) (List.map List.tl self)
+      else firsts
+    in
+    if TokenS.mem empty firsts || TokenS.is_empty firsts
+    then TokenS.union (remove firsts) (first grammar more)
+    else firsts
+
+
+(* let first_set (grammar : 'a grammar) (rule : token) : TokenS.t = first grammar [ rule ] *)
 
 let initial grammar rule_name =
   rule_name
@@ -155,61 +224,49 @@ let initial grammar rule_name =
     { rule = rule_name; before = []; after = prod; lookahead = TokenS.empty })
 
 
-let closure_pass grammar (states : state Set.t) =
-  let rec closure_pass (acc : state Set.t) (states : state list) =
-    match states with
-    | [] -> acc
-    | hd :: tl ->
-      let x =
-        List.nth_opt hd.after 0
-        >>= fun follows ->
-        Token.non_term follows $> fun follows -> initial grammar follows
-      in
-      let added = Option.fold ~none:[] ~some:Fun.id x in
-      closure_pass (Set.union acc added) tl
-  in
-  closure_pass states states
-
 
 let closure grammar (states : state list) =
   let ( >>= ) = Option.bind in
   let ( $> ) op f = Option.map f op in
   let pass (states : state Set.t) =
-    let rec pass (acc : state Set.t) (states : state Set.t) =
-      match states with
-      | [] -> acc
-      | hd :: tl ->
-        let added =
-          begin
-            let x =
-              begin
-                match hd.after with
-                | [] -> None
-                | [ c ] -> Some (c, TokenS.of_list [ Term "<empty>" ])
-                | c :: delta :: _ -> Some (c, first_set grammar delta)
-              end
-            in
-            x
-            (* TODO: check if delta can derive "" *)
-            >>= fun (c, lookahead) ->
-            Token.non_term c
-            $> fun c ->
-            let lookahead =
-              if TokenS.mem (Term "<empty>") lookahead
-              then TokenS.union (TokenS.remove (Term "<empty>") lookahead) hd.lookahead
-              else lookahead
-            in
-            List.map (fun state -> { state with lookahead }) (initial grammar c)
-          end
-          |> Option.fold ~none:[] ~some:id
-        in
-        added |> fun x -> pass (Set.union acc x) tl
+    let folder (acc : StateS.t) (hd : state) =
+      let added =
+        begin
+          let x =
+            begin
+              match hd.after with
+              | [] -> None
+              | c :: delta ->
+                let lookahead = first grammar delta in
+                Some (c, lookahead)
+            end
+          in
+          x
+          >>= fun (c, lookahead) ->
+          Token.non_term c
+          $> fun c ->
+          let lookahead =
+            if TokenS.mem (Term "<empty>") lookahead
+            then TokenS.union (TokenS.remove (Term "<empty>") lookahead) hd.lookahead
+            else lookahead
+          in
+          List.map (fun state -> { state with lookahead }) (initial grammar c)
+        end
+        |> Option.fold ~none:[] ~some:id
+      in
+      StateS.union acc (StateS.of_list added)
     in
-    let o = pass states states in
-    o
+    List.fold_left folder (StateS.of_list states) states |> StateS.to_list
   in
-  fix ~print:string_of_states pass states
+  List.sort State.compare (fix pass states)
 
+
+(* fix *)
+(*   ~eq:StateS.equal *)
+(*   ~print:string_of_states *)
+(*   (* (closure_pass grammar) *) *)
+(*   (StateS.of_list states) *)
+(* |> StateS.to_list *)
 
 let out_edges (states : state list) =
   List.filter_map (fun xs -> List.nth_opt xs.after 0) states |> Set.from_list
@@ -345,9 +402,7 @@ let table_of_graph (g : graph) : table =
         (string_of_action opt1)
         (string_of_action opt2))
     !arbitrarily_resolved;
-  if not @@ List.is_empty !arbitrarily_resolved then
-    failwith "got shift/reduce conflicts"
-  ;
+  if not @@ List.is_empty !arbitrarily_resolved then failwith "got shift/reduce conflicts";
   UidM.of_list x
 
 

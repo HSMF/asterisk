@@ -24,10 +24,15 @@ let tests =
     TokenS.to_list >>> List.filter_map Token.term >>> List.map t >>> TokenS.of_list
   in
   let printer = TokenS.to_string in
-  let assert_equal_tokens = assert_equal ~printer in
+  let assert_equal_tokens = assert_equal ~printer ~cmp:TokenS.equal in
   let assert_equal_lex =
     assert_equal ~printer:(sl Lib.Spec.Lex.string_of_token ",\n " >>> sp "{%s}")
   in
+  let sep () =
+    print_endline "============\n";
+    flush_all ()
+  in
+  ignore sep;
   "generator tests"
   >::: [ (let grammar =
             ug [ "A", [ t "a"; t "b" ]; "A", [ t "c"; t "d" ]; "A", [ t "e"; t "f" ] ]
@@ -52,10 +57,30 @@ let tests =
             (terms [ "<empty>" ])
             (only_terms @@ first_set grammar (NonTerm "A")))
        ; (let grammar = ug [ "A", [ t "value"; nt "A" ]; "A", [] ] in
-          "first_set empty"
+          "first_set contains empty"
           >:: fun _ ->
           assert_equal_tokens
             (terms [ "<empty>"; "value" ])
+            (only_terms @@ first_set grammar (NonTerm "A")))
+       ; (let grammar = ug [ "S", [ nt "A"; nt "B" ]; "B", [ t "x" ]; "A", [] ] in
+          "potentially empty rule"
+          >:: fun _ ->
+          assert_equal_tokens
+            (terms [ "x" ])
+            (only_terms @@ first_set grammar (NonTerm "S")))
+       ; (let grammar = ug [ "A", [ nt "A"; t "b" ]; "A", [ t "x" ] ] in
+          "self-referential"
+          >:: fun _ ->
+          assert_equal_tokens
+            (terms [ "x" ])
+            (only_terms @@ first_set grammar (NonTerm "A")))
+       ; (let grammar =
+            ug [ "A", [ nt "B"; nt "C" ]; "B", [ t "x" ]; "B", []; "C", [ t "k" ] ]
+          in
+          "optional return type"
+          >:: fun _ ->
+          assert_equal_tokens
+            (terms [ "x"; "k" ])
             (only_terms @@ first_set grammar (NonTerm "A")))
        ; ("tokenize grammar"
           >:: fun _ ->
